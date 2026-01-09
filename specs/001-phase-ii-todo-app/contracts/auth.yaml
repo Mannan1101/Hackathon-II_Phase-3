@@ -1,0 +1,271 @@
+openapi: 3.0.3
+info:
+  title: Phase II Todo App - Authentication API
+  description: Authentication endpoints for user signup and signin
+  version: 1.0.0
+  contact:
+    name: Phase II Todo App Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server (placeholder)
+
+tags:
+  - name: Authentication
+    description: User authentication operations (signup, signin)
+
+paths:
+  /auth/signup:
+    post:
+      summary: Create new user account
+      description: Register a new user with email and password. Returns user data and sets session cookie.
+      operationId: signup
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+            examples:
+              validSignup:
+                summary: Valid signup request
+                value:
+                  email: user@example.com
+                  password: SecurePass123
+      responses:
+        '201':
+          description: User account created successfully. Session cookie set in response headers.
+          headers:
+            Set-Cookie:
+              description: Session cookie (HttpOnly, Secure, SameSite=Lax)
+              schema:
+                type: string
+                example: session_id=abc123xyz; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              examples:
+                successfulSignup:
+                  summary: Successful signup response
+                  value:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    email: user@example.com
+                    created_at: "2026-01-07T12:00:00Z"
+        '400':
+          description: Validation error (invalid email format, password too short, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                invalidEmail:
+                  summary: Invalid email format
+                  value:
+                    detail:
+                      - loc: ["body", "email"]
+                        msg: "value is not a valid email address"
+                        type: "value_error.email"
+                passwordTooShort:
+                  summary: Password too short
+                  value:
+                    detail:
+                      - loc: ["body", "password"]
+                        msg: "ensure this value has at least 8 characters"
+                        type: "value_error.any_str.min_length"
+        '409':
+          description: Conflict - email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emailExists:
+                  summary: Email already exists
+                  value:
+                    detail: "An account with this email already exists"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                serverError:
+                  summary: Unexpected server error
+                  value:
+                    detail: "An unexpected error occurred. Please try again later."
+
+  /auth/signin:
+    post:
+      summary: Sign in to existing account
+      description: Authenticate user with email and password. Returns user data and sets session cookie.
+      operationId: signin
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SigninRequest'
+            examples:
+              validSignin:
+                summary: Valid signin request
+                value:
+                  email: user@example.com
+                  password: SecurePass123
+      responses:
+        '200':
+          description: Authentication successful. Session cookie set in response headers.
+          headers:
+            Set-Cookie:
+              description: Session cookie (HttpOnly, Secure, SameSite=Lax)
+              schema:
+                type: string
+                example: session_id=abc123xyz; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=604800
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              examples:
+                successfulSignin:
+                  summary: Successful signin response
+                  value:
+                    id: 550e8400-e29b-41d4-a716-446655440000
+                    email: user@example.com
+                    created_at: "2026-01-07T12:00:00Z"
+        '400':
+          description: Validation error (invalid email format, missing fields, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          description: Unauthorized - invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidCredentials:
+                  summary: Invalid credentials
+                  value:
+                    detail: "Invalid email or password"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    SignupRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: User's email address (must be unique)
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          description: User's password (will be hashed before storage)
+          example: SecurePass123
+
+    SigninRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: User's email address
+          example: user@example.com
+        password:
+          type: string
+          description: User's password
+          example: SecurePass123
+
+    AuthResponse:
+      type: object
+      required:
+        - id
+        - email
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: user@example.com
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp (ISO 8601)
+          example: "2026-01-07T12:00:00Z"
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            required:
+              - loc
+              - msg
+              - type
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+                description: Location of the error (e.g., ["body", "email"])
+                example: ["body", "email"]
+              msg:
+                type: string
+                description: Human-readable error message
+                example: "value is not a valid email address"
+              type:
+                type: string
+                description: Error type identifier
+                example: "value_error.email"
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: "An unexpected error occurred. Please try again later."
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session_id
+      description: Session cookie set by authentication endpoints (HttpOnly, Secure, SameSite=Lax)
