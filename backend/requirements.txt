@@ -26,3 +26,6 @@ httpx==0.26.0
 black==24.1.1
 ruff==0.1.13
 mypy==1.8.0
+
+# AI Chatbot Dependencies (Feature: 001-todo-ai-chatbot)
+cohere==5.11.0

@@ -7,13 +7,13 @@ This module provides business logic for user authentication operations.
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, Response
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from uuid import UUID
 import secrets
 
 from ..models.user import User
-from ..schemas.auth import SignupRequest, SigninRequest, AuthResponse
+from ..schemas.auth import SignupRequest, SigninRequest
 from ..utils.password import hash_password, verify_password
 from ..config import settings
 
@@ -51,21 +51,25 @@ class AuthService:
         user = User(
             email=request.email.lower(),  # Normalize email to lowercase
             hashed_password=hashed_pwd,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         try:
             self.db.add(user)
             self.db.commit()
             self.db.refresh(user)
-        except IntegrityError:
+        except IntegrityError as e:
             self.db.rollback()
+            print(f"IntegrityError during signup: {str(e)}")
             raise HTTPException(
                 status_code=409, detail="An account with this email already exists"
             )
         except Exception as e:
             self.db.rollback()
+            import traceback
+            print(f"Database error during signup: {str(e)}")
+            print(traceback.format_exc())
             raise HTTPException(
                 status_code=500, detail="An unexpected error occurred. Please try again later."
             )
@@ -88,24 +92,34 @@ class AuthService:
         Raises:
             HTTPException: 401 if credentials are invalid
         """
-        # Find user by email
-        user = (
-            self.db.query(User)
-            .filter(User.email == request.email.lower())
-            .first()
-        )
+        try:
+            # Find user by email
+            user = (
+                self.db.query(User)
+                .filter(User.email == request.email.lower())  # type: ignore[arg-type]
+                .first()
+            )
 
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        # Verify password
-        if not verify_password(request.password, user.hashed_password):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
+            # Verify password
+            if not verify_password(request.password, user.hashed_password):
+                raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        # Create session token
-        session_token = self._create_session_token(user.id)
+            # Create session token
+            session_token = self._create_session_token(user.id)
 
-        return user, session_token
+            return user, session_token
+        except HTTPException:
+            # Re-raise HTTPExceptions (401 for invalid credentials)
+            raise
+        except Exception as e:
+            # Log unexpected database errors
+            import traceback
+            print(f"Database error during signin: {str(e)}")
+            print(traceback.format_exc())
+            raise
 
     def _create_session_token(self, user_id: UUID) -> str:
         """
@@ -118,13 +132,13 @@ class AuthService:
             str: JWT session token
         """
         # Set expiration (7 days as per config)
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
         # Create JWT payload
         payload = {
             "sub": str(user_id),
             "exp": expire,
-            "iat": datetime.utcnow(),
+            "iat": datetime.now(timezone.utc),
             "jti": secrets.token_urlsafe(16),  # Unique token ID
         }
 
@@ -154,6 +168,23 @@ class AuthService:
             secure=settings.APP_ENV == "production",  # HTTPS only in production
             samesite="lax",  # CSRF protection
             max_age=604800,  # 7 days in seconds
+            path="/",
+        )
+
+    def clear_session_cookie(self, response: Response) -> None:
+        """
+        Clear session cookie by setting it to expire immediately.
+
+        Args:
+            response: FastAPI response object
+        """
+        response.set_cookie(
+            key="session_id",
+            value="",
+            httponly=True,
+            secure=settings.APP_ENV == "production",
+            samesite="lax",
+            max_age=0,  # Expire immediately
             path="/",
         )
 
@@ -199,7 +230,7 @@ class AuthService:
         """
         user_id = self.verify_session_token(token)
 
-        user = self.db.query(User).filter(User.id == user_id).first()
+        user = self.db.query(User).filter(User.id == user_id).first()  # type: ignore[arg-type]
 
         if not user:
             raise HTTPException(status_code=401, detail="User not found")

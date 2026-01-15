@@ -1,0 +1,252 @@
+openapi: 3.0.3
+info:
+  title: Todo AI Chatbot API
+  description: |
+    Natural language chat interface for managing todo tasks. The chatbot accepts user messages,
+    interprets intent using AI (Cohere), delegates operations to MCP tools, and returns
+    conversational responses. The system is completely stateless - each request is independent.
+  version: 1.0.0
+  contact:
+    name: Todo App Support
+    email: support@todoapp.com
+
+servers:
+  - url: /api
+    description: API base path
+
+security:
+  - BetterAuth: []
+
+paths:
+  /chat:
+    post:
+      summary: Send a chat message to the AI chatbot
+      description: |
+        Processes a natural language message from the user, interprets intent, executes
+        appropriate MCP tools (add/list/complete/delete/update tasks), and returns a
+        conversational response. Requires authentication via Better Auth session.
+      operationId: sendChatMessage
+      tags:
+        - Chatbot
+      security:
+        - BetterAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              add_task:
+                summary: Add a new task
+                value:
+                  text: "Add a task to buy groceries"
+              list_tasks:
+                summary: List all tasks
+                value:
+                  text: "What are my tasks?"
+              complete_task:
+                summary: Complete a task
+                value:
+                  text: "Mark 'buy groceries' as done"
+              delete_task:
+                summary: Delete a task
+                value:
+                  text: "Delete the groceries task"
+              update_task:
+                summary: Update a task
+                value:
+                  text: "Change my groceries task to 'buy groceries and milk'"
+              query_tasks:
+                summary: Ask analytical question
+                value:
+                  text: "How many tasks do I have?"
+      responses:
+        '200':
+          description: Successful response with chatbot message
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+              examples:
+                task_added:
+                  summary: Task successfully added
+                  value:
+                    message: "I've added 'buy groceries' to your tasks!"
+                    metadata:
+                      intent: "add_task"
+                      tool_called: "add_task"
+                      success: true
+                tasks_listed:
+                  summary: Tasks listed
+                  value:
+                    message: "You have 3 tasks:\n1. Buy groceries (pending)\n2. Call mom (pending)\n3. Finish report (completed)"
+                    metadata:
+                      intent: "list_tasks"
+                      tool_called: "list_tasks"
+                      count: 3
+                task_completed:
+                  summary: Task marked complete
+                  value:
+                    message: "Great! I've marked 'buy groceries' as completed."
+                    metadata:
+                      intent: "complete_task"
+                      tool_called: "complete_task"
+                      success: true
+                ambiguous_intent:
+                  summary: Ambiguous or unclear message
+                  value:
+                    message: "I'm not sure what you want to do. You can add, list, complete, delete, or update tasks."
+                    metadata:
+                      intent: "unknown"
+                      tool_called: null
+        '400':
+          description: Bad request (validation error, malformed input)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                empty_message:
+                  summary: Empty message text
+                  value:
+                    error: "VALIDATION_ERROR"
+                    message: "Message text cannot be empty"
+                message_too_long:
+                  summary: Message exceeds length limit
+                  value:
+                    error: "VALIDATION_ERROR"
+                    message: "Message must be under 1000 characters"
+        '401':
+          description: Unauthorized (missing or invalid authentication)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_authenticated:
+                  summary: User not authenticated
+                  value:
+                    error: "UNAUTHORIZED"
+                    message: "You must be logged in to use the chatbot"
+        '429':
+          description: Too many requests (rate limit exceeded)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                rate_limit:
+                  summary: Rate limit exceeded
+                  value:
+                    error: "RATE_LIMIT_EXCEEDED"
+                    message: "Too many requests. Please wait a moment and try again."
+        '500':
+          description: Internal server error (Cohere API failure, database error, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                server_error:
+                  summary: Generic server error
+                  value:
+                    error: "INTERNAL_ERROR"
+                    message: "Something went wrong. Please try again in a moment."
+        '503':
+          description: Service unavailable (Cohere API down, database down)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                service_unavailable:
+                  summary: AI service unavailable
+                  value:
+                    error: "SERVICE_UNAVAILABLE"
+                    message: "The chatbot is temporarily unavailable. Please try again later."
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Natural language message from the user
+          minLength: 1
+          maxLength: 1000
+          example: "Add a task to buy groceries"
+      additionalProperties: false
+
+    ChatResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Conversational response from the chatbot
+          example: "I've added 'buy groceries' to your tasks!"
+        metadata:
+          type: object
+          description: Optional metadata about the request processing (for debugging)
+          properties:
+            intent:
+              type: string
+              description: Detected user intent
+              enum: [add_task, list_tasks, complete_task, delete_task, update_task, query, unknown]
+            tool_called:
+              type: string
+              nullable: true
+              description: MCP tool that was invoked (null if no tool called)
+            success:
+              type: boolean
+              description: Whether the operation succeeded
+            count:
+              type: integer
+              description: Number of tasks returned (for list_tasks intent)
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code (machine-readable)
+          enum:
+            - VALIDATION_ERROR
+            - UNAUTHORIZED
+            - RATE_LIMIT_EXCEEDED
+            - INTERNAL_ERROR
+            - SERVICE_UNAVAILABLE
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: User-friendly error message (no stack traces)
+          example: "Message text cannot be empty"
+        details:
+          type: object
+          description: Optional additional error details (for debugging, not shown to end users)
+          additionalProperties: true
+
+  securitySchemes:
+    BetterAuth:
+      type: apiKey
+      in: cookie
+      name: session
+      description: |
+        Better Auth session cookie. Users must be authenticated to access the chatbot.
+        The cookie contains a signed session token that identifies the user.
+
+tags:
+  - name: Chatbot
+    description: Natural language chat interface for task management
+
+externalDocs:
+  description: Feature Specification
+  url: ../spec.md

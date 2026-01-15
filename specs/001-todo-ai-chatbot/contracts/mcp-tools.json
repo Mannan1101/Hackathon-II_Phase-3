@@ -1,0 +1,332 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MCP Tools Contract for Todo AI Chatbot",
+  "description": "JSON Schema definitions for all MCP server tools used by the AI chatbot agent",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "add_task",
+      "description": "Creates a new todo task for the authenticated user",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "ID of the authenticated user (from session context)",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title/description",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": ["string", "null"],
+            "description": "Optional detailed description of the task",
+            "maxLength": 1000
+          }
+        },
+        "required": ["user_id", "title"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was created successfully"
+          },
+          "task_id": {
+            "type": "integer",
+            "description": "ID of the newly created task"
+          },
+          "message": {
+            "type": "string",
+            "description": "User-friendly confirmation message",
+            "example": "I've added 'buy groceries' to your tasks!"
+          }
+        },
+        "required": ["success", "task_id", "message"]
+      },
+      "errors": [
+        {
+          "code": "VALIDATION_ERROR",
+          "message": "Title must be between 1 and 200 characters"
+        },
+        {
+          "code": "VALIDATION_ERROR",
+          "message": "Description must be under 1000 characters"
+        },
+        {
+          "code": "DATABASE_ERROR",
+          "message": "Failed to create task. Please try again."
+        }
+      ]
+    },
+    {
+      "name": "list_tasks",
+      "description": "Retrieves all todo tasks for the authenticated user, optionally filtered by status",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "ID of the authenticated user (from session context)",
+            "minimum": 1
+          },
+          "status": {
+            "type": ["string", "null"],
+            "description": "Optional status filter: 'pending', 'completed', or null for all",
+            "enum": ["pending", "completed", null]
+          }
+        },
+        "required": ["user_id"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "description": "List of tasks matching the filter, sorted by created_at DESC",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": ["string", "null"]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["pending", "completed"]
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": ["id", "title", "status", "created_at", "updated_at"]
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total number of tasks returned"
+          }
+        },
+        "required": ["tasks", "count"]
+      },
+      "errors": [
+        {
+          "code": "DATABASE_ERROR",
+          "message": "Failed to retrieve tasks. Please try again."
+        }
+      ]
+    },
+    {
+      "name": "complete_task",
+      "description": "Marks a todo task as completed for the authenticated user",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "ID of the authenticated user (from session context)",
+            "minimum": 1
+          },
+          "task_id": {
+            "type": "integer",
+            "description": "ID of the task to mark as completed",
+            "minimum": 1
+          }
+        },
+        "required": ["user_id", "task_id"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was completed successfully"
+          },
+          "message": {
+            "type": "string",
+            "description": "User-friendly confirmation message",
+            "example": "Great! I've marked 'buy groceries' as completed."
+          }
+        },
+        "required": ["success", "message"]
+      },
+      "errors": [
+        {
+          "code": "NOT_FOUND",
+          "message": "I couldn't find that task. Would you like to see your current tasks?"
+        },
+        {
+          "code": "ALREADY_COMPLETED",
+          "message": "That task is already marked as complete!"
+        },
+        {
+          "code": "FORBIDDEN",
+          "message": "You don't have permission to modify this task."
+        },
+        {
+          "code": "DATABASE_ERROR",
+          "message": "Failed to complete task. Please try again."
+        }
+      ]
+    },
+    {
+      "name": "delete_task",
+      "description": "Permanently deletes a todo task for the authenticated user",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "ID of the authenticated user (from session context)",
+            "minimum": 1
+          },
+          "task_id": {
+            "type": "integer",
+            "description": "ID of the task to delete",
+            "minimum": 1
+          }
+        },
+        "required": ["user_id", "task_id"],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was deleted successfully"
+          },
+          "message": {
+            "type": "string",
+            "description": "User-friendly confirmation message",
+            "example": "I've deleted the 'buy groceries' task."
+          }
+        },
+        "required": ["success", "message"]
+      },
+      "errors": [
+        {
+          "code": "NOT_FOUND",
+          "message": "I couldn't find a task matching that description. Your tasks are still intact."
+        },
+        {
+          "code": "FORBIDDEN",
+          "message": "You don't have permission to delete this task."
+        },
+        {
+          "code": "DATABASE_ERROR",
+          "message": "Failed to delete task. Please try again."
+        }
+      ]
+    },
+    {
+      "name": "update_task",
+      "description": "Updates the title and/or description of an existing todo task for the authenticated user",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "description": "ID of the authenticated user (from session context)",
+            "minimum": 1
+          },
+          "task_id": {
+            "type": "integer",
+            "description": "ID of the task to update",
+            "minimum": 1
+          },
+          "title": {
+            "type": ["string", "null"],
+            "description": "New task title (optional, null to keep existing)",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": ["string", "null"],
+            "description": "New task description (optional, null to keep existing, empty string to clear)",
+            "maxLength": 1000
+          }
+        },
+        "required": ["user_id", "task_id"],
+        "additionalProperties": false,
+        "minProperties": 3
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the task was updated successfully"
+          },
+          "message": {
+            "type": "string",
+            "description": "User-friendly confirmation message",
+            "example": "I've updated your task to 'buy groceries and milk'."
+          }
+        },
+        "required": ["success", "message"]
+      },
+      "errors": [
+        {
+          "code": "VALIDATION_ERROR",
+          "message": "At least one field (title or description) must be provided to update"
+        },
+        {
+          "code": "VALIDATION_ERROR",
+          "message": "Title must be between 1 and 200 characters"
+        },
+        {
+          "code": "VALIDATION_ERROR",
+          "message": "Description must be under 1000 characters"
+        },
+        {
+          "code": "NOT_FOUND",
+          "message": "I couldn't find that task to update."
+        },
+        {
+          "code": "FORBIDDEN",
+          "message": "You don't have permission to modify this task."
+        },
+        {
+          "code": "DATABASE_ERROR",
+          "message": "Failed to update task. Please try again."
+        }
+      ]
+    }
+  ],
+  "security": {
+    "authentication": "Better Auth session-based",
+    "authorization": "User isolation via user_id validation",
+    "notes": [
+      "All tools require authenticated user session",
+      "user_id is extracted from session context (not user-provided)",
+      "Tools validate task ownership: task.user_id must match session user_id",
+      "No cross-user data access permitted (SC-008 requirement)"
+    ]
+  },
+  "performance": {
+    "target_latency": "<50ms per tool call (database operations only)",
+    "notes": [
+      "Total response time budget: <3s (SC-005)",
+      "Breakdown: Cohere API ~1500ms + MCP tools ~50ms + overhead ~1450ms",
+      "Database operations use indexed queries for fast lookups"
+    ]
+  }
+}

@@ -4,12 +4,24 @@ from sqlalchemy import pool
 from alembic import context
 import os
 import sys
+from pathlib import Path
+from dotenv import load_dotenv
 
 # Add parent directory to path to import models
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+parent_dir = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, parent_dir)
 
-from src.database import Base  # noqa: E402
+# Load environment variables from .env file (in backend directory)
+# Use override=True to override any existing environment variables
+env_path = Path(parent_dir) / ".env"
+load_dotenv(env_path, override=True)
+
+from sqlmodel import SQLModel  # noqa: E402
 from src.config import settings  # noqa: E402
+
+# Import all models to register them with SQLModel
+from src.models.user import User  # noqa: E402, F401
+from src.models.todo import Todo  # noqa: E402, F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -25,7 +37,7 @@ config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-target_metadata = Base.metadata
+target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

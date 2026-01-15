@@ -3,13 +3,14 @@ TodoService handles all todo-related business logic.
 
 Implements CRUD operations with user ownership enforcement.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
-from ..models.todo import Todo
+from ..models.todo import Todo, TaskStatus
 from ..schemas.todo import TodoCreate, TodoUpdate
 
 
@@ -32,8 +33,8 @@ class TodoService:
         """
         todos = (
             self.db.query(Todo)
-            .filter(Todo.user_id == user_id)
-            .order_by(Todo.created_at.desc())
+            .filter(Todo.user_id == user_id)  # type: ignore[arg-type]
+            .order_by(desc(Todo.created_at))  # type: ignore[arg-type]
             .all()
         )
         return todos
@@ -54,7 +55,7 @@ class TodoService:
         """
         todo = (
             self.db.query(Todo)
-            .filter(Todo.id == todo_id, Todo.user_id == user_id)
+            .filter(Todo.id == todo_id, Todo.user_id == user_id)  # type: ignore[arg-type]
             .first()
         )
 
@@ -80,9 +81,9 @@ class TodoService:
         todo = Todo(
             user_id=user_id,
             title=request.title,
-            is_complete=False,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            status=TaskStatus.PENDING,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.db.add(todo)
@@ -117,7 +118,7 @@ class TodoService:
             updated = True
 
         if request.is_complete is not None:
-            todo.is_complete = request.is_complete
+            todo.status = TaskStatus.COMPLETED if request.is_complete else TaskStatus.PENDING
             updated = True
 
         if not updated:
@@ -126,7 +127,7 @@ class TodoService:
                 detail="No fields to update"
             )
 
-        todo.updated_at = datetime.utcnow()
+        todo.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(todo)
@@ -165,8 +166,9 @@ class TodoService:
         """
         todo = self.get_todo_by_id(todo_id, user_id)
 
-        todo.is_complete = not todo.is_complete
-        todo.updated_at = datetime.utcnow()
+        # Toggle status between PENDING and COMPLETED
+        todo.status = TaskStatus.PENDING if todo.status == TaskStatus.COMPLETED else TaskStatus.COMPLETED
+        todo.updated_at = datetime.now(timezone.utc)
 
         self.db.commit()
         self.db.refresh(todo)

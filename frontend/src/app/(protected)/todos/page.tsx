@@ -5,6 +5,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Button } from '@/components/ui/Button';
 import { TodoList } from '@/components/todos/TodoList';
 import { TodoForm } from '@/components/todos/TodoForm';
+import { ChatWidget } from '@/components/chat/ChatWidget';
 import { useRouter } from 'next/navigation';
 import { signout } from '@/lib/auth';
 import { api, APIError } from '@/lib/api';
@@ -217,6 +218,9 @@ export default function TodosPage() {
           </div>
         )}
       </div>
+
+      {/* AI Chatbot Widget */}
+      <ChatWidget onTodoChange={fetchTodos} />
     </div>
   );
 }

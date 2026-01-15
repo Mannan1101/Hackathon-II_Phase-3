@@ -71,7 +71,10 @@ async def signup(
         # Re-raise HTTPExceptions from service
         raise
     except Exception as e:
-        # Catch unexpected errors
+        # Log unexpected errors for debugging
+        import traceback
+        print(f"Signup error: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred. Please try again later.",
@@ -135,8 +138,43 @@ async def signin(
         # Re-raise HTTPExceptions from service
         raise
     except Exception as e:
-        # Catch unexpected errors
+        # Log unexpected errors for debugging
+        import traceback
+        print(f"Signin error: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred. Please try again later.",
         )
+
+
+@router.post("/signout", status_code=200)
+async def signout(response: Response, db: Session = Depends(get_db)) -> dict:
+    """
+    Sign out current user.
+
+    Clears the session cookie, effectively logging out the user.
+
+    Args:
+        response: FastAPI response object (for clearing cookie)
+        db: Database session
+
+    Returns:
+        dict: Success message
+
+    Example:
+        ```
+        POST /auth/signout
+
+        Response:
+        {
+            "message": "Successfully signed out"
+        }
+        ```
+    """
+    auth_service = AuthService(db)
+
+    # Clear session cookie
+    auth_service.clear_session_cookie(response)
+
+    return {"message": "Successfully signed out"}
