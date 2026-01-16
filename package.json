@@ -1,0 +1,26 @@
+{
+  "name": "todo_app_nextjs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mannan1101/Hackathon-II_Phase-3.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Mannan1101/Hackathon-II_Phase-3/issues"
+  },
+  "homepage": "https://github.com/Mannan1101/Hackathon-II_Phase-3#readme",
+  "dependencies": {
+    "next": "^16.1.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  }
+}
