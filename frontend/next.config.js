@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  appDir: 'src/app',
 
   // Proxy API requests to backend to avoid cross-origin cookie issues
   async rewrites() {
