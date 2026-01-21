@@ -5,7 +5,7 @@ const nextConfig = {
 
   // Proxy API requests to backend to avoid cross-origin cookie issues
   async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://abdul123233-todo-app.hf.space';
     return [
       {
         source: '/api/backend/:path*',
